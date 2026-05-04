@@ -1,5 +1,45 @@
 {
-  "origin_skill": "~/dev/opensource/claude-toolkit/skills/frontend-security",
-  "max_iterations": 5,
-  "target_score": 2.7
-}
+    "skill_name": "frontend-security",
+    "topic_group": "frontend-injection-and-defence",
+    "origin_skill": "skills/security-audit",
+    "target_score": 2.7,
+    "max_iterations": 5,
+    "max_concurrency": 1,
+    "model": {
+      "provider": "anthropic",
+      "name": "claude-sonnet-4-6"
+    },
+    "models": {
+      "producer": {
+        "provider": "anthropic",
+        "name": "claude-haiku-4-5"
+      },
+      "judge": {
+        "provider": "anthropic",
+        "name": "claude-sonnet-4-6"
+      },
+      "researcher": {
+        "provider": "anthropic",
+        "name": "claude-sonnet-4-6"
+      }
+    },
+    "roles": {
+      "judge": "release-notes-judge",
+      "skill_builder": "skill-builder"
+    },
+    "tracks": [
+      {
+        "id": "audit",
+        "eval_type": "detect-and-fix",
+        "role": "release-editor",
+        "target_skill": "security-audit"
+      },
+      {
+        "id": "authoring",
+        "eval_type": "secure-author",
+        "role": "release-editor",
+        "target_skill": "secure-authoring",
+        "requires_description": true
+      }
+    ]
+  }
