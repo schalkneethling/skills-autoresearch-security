@@ -1,213 +1,257 @@
 {
-  "skill_name": "frontend-security",
-  "topic_group": "frontend-injection-and-defence",
-  "topics": ["xss-prevention", "dom-security", "csp-configuration"],
-  "target_score": 2.7,
-  "max_iterations": 5,
-  "scoring_dimensions": [
-    "vulnerability_detection",
-    "fix_correctness",
-    "fix_completeness",
-    "regression_avoidance",
-    "secure_defaults",
-    "false_positive_avoidance",
-    "framework_idiom",
-    "defence_in_depth"
-  ],
-  "evals": [
-    {
-      "id": 1,
-      "name": "react-xss-detect-and-fix",
-      "type": "detect-and-fix",
-      "description": "A React user profile component with multiple XSS vectors: dangerouslySetInnerHTML with user-controlled query param, unvalidated href, and unsafe SSR serialisation.",
-      "topic": "xss-prevention",
-      "focus_dimensions": [
-        "vulnerability_detection",
-        "fix_correctness",
-        "fix_completeness",
-        "regression_avoidance",
-        "framework_idiom"
-      ],
-      "input_files": {
-        "UserProfile.jsx": "import { useState, useEffect } from 'react';\nimport { useSearchParams } from 'react-router-dom';\n\nexport function UserProfile({ userId }) {\n  const [searchParams] = useSearchParams();\n  const [profile, setProfile] = useState(null);\n  const [bio, setBio] = useState('');\n\n  useEffect(() => {\n    fetch(`/api/users/${userId}`)\n      .then(res => res.json())\n      .then(data => {\n        setProfile(data);\n        setBio(data.bio);\n      });\n  }, [userId]);\n\n  const greeting = searchParams.get('greeting') || 'Welcome';\n\n  if (!profile) return <p>Loading...</p>;\n\n  return (\n    <div>\n      <h1 dangerouslySetInnerHTML={{ __html: `${greeting}, ${profile.name}` }} />\n      <div className=\"bio\" dangerouslySetInnerHTML={{ __html: bio }} />\n      <a href={profile.website}>Visit website</a>\n      <img src={profile.avatar} alt={profile.name} />\n      <script>{`window.__USER__ = ${JSON.stringify(profile)}`}</script>\n    </div>\n  );\n}\n"
+    "evals": [
+      {
+        "id": "react-xss-detect-and-fix",
+        "eval_type": "detect-and-fix",
+        "title": "React XSS detect and fix",
+        "input": {
+          "topic": "xss-prevention",
+          "description": "A React user profile component with multiple XSS vectors: dangerouslySetInnerHTML
+  with user-controlled query param, unvalidated href, and unsafe SSR serialisation.",
+          "input_files": {
+            "UserProfile.jsx": "import { useState, useEffect } from 'react';\nimport { useSearchParams } from
+  'react-router-dom';\n\nexport function UserProfile({ userId }) {\n  const [searchParams] = useSearchParams();
+  \n  const [profile, setProfile] = useState(null);\n  const [bio, setBio] = useState('');\n\n  useEffect(() =>
+  {\n    fetch(`/api/users/${userId}`)\n      .then(res => res.json())\n      .then(data => {\n
+  setProfile(data);\n        setBio(data.bio);\n      });\n  }, [userId]);\n\n  const greeting =
+  searchParams.get('greeting') || 'Welcome';\n\n  if (!profile) return <p>Loading...</p>;\n\n  return (\n
+  <div>\n      <h1 dangerouslySetInnerHTML={{ __html: `${greeting}, ${profile.name}` }} />\n      <div
+  className=\"bio\" dangerouslySetInnerHTML={{ __html: bio }} />\n      <a href={profile.website}>Visit
+  website</a>\n      <img src={profile.avatar} alt={profile.name} />\n      <script>{`window.__USER__ =
+  ${JSON.stringify(profile)}`}</script>\n    </div>\n  );\n}\n"
+          },
+          "task": "You are a senior frontend security engineer. Audit the file UserProfile.jsx for security
+  vulnerabilities and apply fixes directly to the file. Preserve all existing functionality. The component must
+  still render the same content, but securely.\n\nWrite a brief AUDIT.md alongside the fixed file documenting
+  what you found and what you changed."
+        },
+        "expectations": {
+          "key_expectations": [
+            "Removes dangerouslySetInnerHTML from the h1 and replaces it with JSX interpolation.",
+            "Removes dangerouslySetInnerHTML from the bio div or sanitises with DOMPurify if bio is
+  legitimately HTML.",
+            "Validates profile.website URL protocol before rendering in href.",
+            "Replaces unsafe inline script JSON serialisation with a safe alternative.",
+            "Preserves greeting, name, bio, website link, avatar, serialised profile data, and loading state.",
+            "Does not flag img src or React-escaped alt text as XSS.",
+            "Correctly classifies greeting XSS as critical and bio XSS as high."
+          ]
+        },
+        "scoring_dimensions": [
+          { "id": "vulnerability_detection", "label": "Vulnerability detection", "max_score": 1 },
+          { "id": "fix_correctness", "label": "Fix correctness", "max_score": 1 },
+          { "id": "fix_completeness", "label": "Fix completeness", "max_score": 1 },
+          { "id": "regression_avoidance", "label": "Regression avoidance", "max_score": 1 },
+          { "id": "framework_idiom", "label": "Framework idiom", "max_score": 1 }
+        ]
       },
-      "task": "You are a senior frontend security engineer. Audit the file UserProfile.jsx for security vulnerabilities and apply fixes directly to the file. Preserve all existing functionality — the component must still render the same content, but securely.\n\nWrite a brief AUDIT.md alongside the fixed file documenting what you found and what you changed.",
-      "key_expectations": [
-        "FIXES: Removes dangerouslySetInnerHTML from the h1 — replaces with JSX interpolation since greeting and name are text content",
-        "FIXES: Either removes dangerouslySetInnerHTML from the bio div and uses textContent, or sanitises with DOMPurify if the bio is legitimately HTML",
-        "FIXES: Validates profile.website URL protocol before rendering in href — rejects javascript: and data: protocols",
-        "FIXES: Replaces the inline <script> JSON serialisation with a safe alternative (serialize-javascript, or escapes </script> sequences)",
-        "PRESERVES: Component still renders greeting, name, bio, website link, avatar, and serialised profile data",
-        "PRESERVES: Loading state still works",
-        "DOES NOT: Flag the img src={profile.avatar} as an XSS vector — image src with server data is safe",
-        "DOES NOT: Flag {profile.name} in the alt attribute — React auto-escapes JSX expressions",
-        "DOES NOT: Remove the website link entirely — it should be preserved with URL validation",
-        "AUDIT: Correctly classifies the greeting XSS as CRITICAL (user-controlled via URL param)",
-        "AUDIT: Correctly classifies the bio XSS as HIGH (server data rendered as raw HTML)",
-        "AUDIT: Mentions the javascript: URL risk for the href"
-      ]
-    },
-    {
-      "id": 2,
-      "name": "twig-xss-csrf-detect-and-fix",
-      "type": "detect-and-fix",
-      "description": "A Twig contact form template using the |raw filter on user input and missing CSRF protection. Tests framework-specific XSS knowledge and CSRF awareness.",
-      "topic": "xss-prevention",
-      "focus_dimensions": [
-        "vulnerability_detection",
-        "fix_correctness",
-        "fix_completeness",
-        "false_positive_avoidance",
-        "framework_idiom"
-      ],
-      "input_files": {
-        "contact.html.twig": "{# templates/contact.html.twig #}\n{% extends 'base.html.twig' %}\n\n{% block content %}\n<form action=\"/contact\" method=\"POST\">\n  <label for=\"name\">Name</label>\n  <input type=\"text\" id=\"name\" name=\"name\" value=\"{{ app.request.get('name') }}\">\n\n  <label for=\"email\">Email</label>\n  <input type=\"email\" id=\"email\" name=\"email\" value=\"{{ app.request.get('email') }}\">\n\n  <label for=\"message\">Message</label>\n  <textarea id=\"message\" name=\"message\">{{ app.request.get('message') }}</textarea>\n\n  <div class=\"preview\">\n    <h3>Preview:</h3>\n    {{ app.request.get('message')|raw }}\n  </div>\n\n  <button type=\"submit\">Send</button>\n</form>\n{% endblock %}\n"
+      {
+        "id": "twig-xss-csrf-detect-and-fix",
+        "eval_type": "detect-and-fix",
+        "title": "Twig XSS and CSRF detect and fix",
+        "input": {
+          "topic": "xss-prevention",
+          "description": "A Twig contact form template using the |raw filter on user input and missing CSRF
+  protection.",
+          "input_files": {
+            "contact.html.twig": "{# templates/contact.html.twig #}\n{% extends 'base.html.twig' %}\n\n{% block
+  content %}\n<form action=\"/contact\" method=\"POST\">\n  <label for=\"name\">Name</label>\n  <input
+  type=\"text\" id=\"name\" name=\"name\" value=\"{{ app.request.get('name') }}\">\n\n  <label
+  for=\"email\">Email</label>\n  <input type=\"email\" id=\"email\" name=\"email\"
+  value=\"{{ app.request.get('email') }}\">\n\n  <label for=\"message\">Message</label>\n  <textarea
+  id=\"message\" name=\"message\">{{ app.request.get('message') }}</textarea>\n\n  <div class=\"preview\">\n
+  <h3>Preview:</h3>\n    {{ app.request.get('message')|raw }}\n  </div>\n\n  <button type=\"submit\">Send</
+  button>\n</form>\n{% endblock %}\n"
+          },
+          "task": "You are a senior frontend security engineer. Audit the Twig template contact.html.twig for
+  security vulnerabilities and apply fixes directly to the file. This template is part of a Symfony
+  application.\n\nPreserve all existing functionality, including the message preview feature.\n\nWrite a brief
+  AUDIT.md alongside the fixed file documenting what you found and what you changed."
+        },
+        "expectations": {
+          "key_expectations": [
+            "Removes the |raw filter from the preview.",
+            "Adds a Symfony CSRF token to the form.",
+            "Preserves message preview, form pre-population, structure, and labels.",
+            "Does not flag default Twig auto-escaped expressions as XSS.",
+            "Explains that Twig auto-escapes by default and that |raw disables protection."
+          ]
+        },
+        "scoring_dimensions": [
+          { "id": "vulnerability_detection", "label": "Vulnerability detection", "max_score": 1 },
+          { "id": "fix_correctness", "label": "Fix correctness", "max_score": 1 },
+          { "id": "fix_completeness", "label": "Fix completeness", "max_score": 1 },
+          { "id": "false_positive_avoidance", "label": "False positive avoidance", "max_score": 1 },
+          { "id": "framework_idiom", "label": "Framework idiom", "max_score": 1 }
+        ]
       },
-      "task": "You are a senior frontend security engineer. Audit the Twig template contact.html.twig for security vulnerabilities and apply fixes directly to the file. This template is part of a Symfony application.\n\nPreserve all existing functionality — the form must still work, including the message preview feature.\n\nWrite a brief AUDIT.md alongside the fixed file documenting what you found and what you changed.",
-      "key_expectations": [
-        "FIXES: Removes the |raw filter from the preview — replaces with auto-escaped {{ app.request.get('message') }} or explicit |e('html')",
-        "FIXES: Adds CSRF token to the form — <input type=\"hidden\" name=\"_token\" value=\"{{ csrf_token('contact') }}\">",
-        "PRESERVES: The message preview feature still works (shows the message text, just escaped)",
-        "PRESERVES: Form pre-population from query params still works",
-        "PRESERVES: The form structure and labels remain intact",
-        "DOES NOT: Flag {{ app.request.get('name') }} in the input value as XSS — Twig auto-escapes by default",
-        "DOES NOT: Flag {{ app.request.get('email') }} as XSS — same reason",
-        "DOES NOT: Flag {{ app.request.get('message') }} in the textarea as XSS — auto-escaped",
-        "AUDIT: Correctly identifies |raw as the XSS vector, not the auto-escaped expressions",
-        "AUDIT: Explains that Twig auto-escapes by default, so only |raw and {% autoescape false %} are dangerous"
-      ]
-    },
-    {
-      "id": 3,
-      "name": "dom-comment-section-detect-and-fix",
-      "type": "detect-and-fix",
-      "description": "A vanilla JavaScript comment section using innerHTML with server data and user search queries. Tests DOM XSS knowledge and safe DOM API alternatives.",
-      "topic": "dom-security",
-      "focus_dimensions": [
-        "vulnerability_detection",
-        "fix_correctness",
-        "fix_completeness",
-        "regression_avoidance",
-        "framework_idiom"
-      ],
-      "input_files": {
-        "comments.js": "export class CommentSection {\n  constructor(containerId) {\n    this.container = document.getElementById(containerId);\n    this.comments = [];\n  }\n\n  async loadComments() {\n    const response = await fetch('/api/comments');\n    this.comments = await response.json();\n    this.render();\n  }\n\n  render() {\n    this.container.innerHTML = '';\n    this.comments.forEach(comment => {\n      const html = `\n        <div class=\"comment\" id=\"comment-${comment.id}\">\n          <strong>${comment.author}</strong>\n          <span class=\"date\">${comment.date}</span>\n          <div class=\"body\">${comment.body}</div>\n          <button onclick=\"deleteComment(${comment.id})\">Delete</button>\n        </div>\n      `;\n      this.container.innerHTML += html;\n    });\n  }\n\n  addComment(author, body) {\n    fetch('/api/comments', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ author, body })\n    });\n    this.loadComments();\n  }\n\n  search(query) {\n    const results = this.comments.filter(c =>\n      c.body.includes(query) || c.author.includes(query)\n    );\n    document.getElementById('search-results').innerHTML =\n      `<p>Found ${results.length} results for \"${query}\"</p>`;\n  }\n}\n"
+      {
+        "id": "dom-comment-section-detect-and-fix",
+        "eval_type": "detect-and-fix",
+        "title": "DOM comment section detect and fix",
+        "input": {
+          "topic": "dom-security",
+          "description": "A vanilla JavaScript comment section using innerHTML with server data and user search
+  queries.",
+          "input_files": {
+            "comments.js": "export class CommentSection {\n  constructor(containerId) {\n    this.container =
+  document.getElementById(containerId);\n    this.comments = [];\n  }\n\n  async loadComments() {\n    const
+  response = await fetch('/api/comments');\n    this.comments = await response.json();\n    this.render();
+  \n  }\n\n  render() {\n    this.container.innerHTML = '';\n    this.comments.forEach(comment => {\n
+  const html = `\n        <div class=\"comment\" id=\"comment-${comment.id}\">\n
+  <strong>${comment.author}</strong>\n          <span class=\"date\">${comment.date}</span>\n          <div
+  class=\"body\">${comment.body}</div>\n          <button onclick=\"deleteComment(${comment.id})\">Delete</
+  button>\n        </div>\n      `;\n      this.container.innerHTML += html;\n    });\n  }\n\n
+  addComment(author, body) {\n    fetch('/api/comments', {\n      method: 'POST',\n      headers: { 'Content-
+  Type': 'application/json' },\n      body: JSON.stringify({ author, body })\n    });\n    this.loadComments();
+  \n  }\n\n  search(query) {\n    const results = this.comments.filter(c =>\n      c.body.includes(query) ||
+  c.author.includes(query)\n    );\n    document.getElementById('search-results').innerHTML =\n      `<p>Found
+  ${results.length} results for \"${query}\"</p>`;\n  }\n}\n"
+          },
+          "task": "You are a senior frontend security engineer. Audit comments.js for security vulnerabilities
+  and apply fixes directly to the file. Preserve all existing functionality.\n\nWrite a brief AUDIT.md
+  alongside the fixed file documenting what you found and what you changed."
+        },
+        "expectations": {
+          "key_expectations": [
+            "Replaces innerHTML rendering with DOM APIs.",
+            "Replaces search innerHTML with DOM APIs or textContent.",
+            "Replaces inline onclick with addEventListener.",
+            "Safely clears the container before rerendering.",
+            "Preserves comment rendering, delete behavior, search filtering, and class API.",
+            "Does not suggest DOMPurify as the primary fix when DOM APIs are sufficient."
+          ]
+        },
+        "scoring_dimensions": [
+          { "id": "vulnerability_detection", "label": "Vulnerability detection", "max_score": 1 },
+          { "id": "fix_correctness", "label": "Fix correctness", "max_score": 1 },
+          { "id": "fix_completeness", "label": "Fix completeness", "max_score": 1 },
+          { "id": "regression_avoidance", "label": "Regression avoidance", "max_score": 1 },
+          { "id": "framework_idiom", "label": "Framework idiom", "max_score": 1 }
+        ]
       },
-      "task": "You are a senior frontend security engineer. Audit comments.js for security vulnerabilities and apply fixes directly to the file. The file implements a comment section that loads, displays, searches, and adds comments via a REST API.\n\nPreserve all existing functionality — comments must still render with author, date, body, and a delete button. The search feature must still display result counts.\n\nWrite a brief AUDIT.md alongside the fixed file documenting what you found and what you changed.",
-      "key_expectations": [
-        "FIXES: Replaces innerHTML concatenation in render() with DOM APIs (createElement, textContent, appendChild)",
-        "FIXES: Replaces innerHTML in search() with DOM APIs or textContent",
-        "FIXES: Replaces inline onclick handler with addEventListener",
-        "FIXES: Clears container safely before re-rendering (replaceChildren or while loop with removeChild)",
-        "PRESERVES: All comment fields (author, date, body) still render",
-        "PRESERVES: Delete button still works (with addEventListener instead of onclick)",
-        "PRESERVES: Search still filters and shows result count",
-        "PRESERVES: The class structure and API interface remain the same",
-        "DOES NOT: Suggest DOMPurify as the primary fix — DOM APIs are the correct solution here since no HTML rendering is needed",
-        "DOES NOT: Flag the fetch GET request as a vulnerability",
-        "AUDIT: Identifies the render() innerHTML as stored XSS (CRITICAL — server data rendered as HTML)",
-        "AUDIT: Identifies the search() innerHTML as reflected XSS (CRITICAL — user query rendered as HTML)",
-        "AUDIT: Identifies the inline onclick as a minor injection vector"
-      ]
-    },
-    {
-      "id": 4,
-      "name": "csp-configuration-detect-and-fix",
-      "type": "detect-and-fix",
-      "description": "An Express.js middleware configuring CSP with unsafe-inline, unsafe-eval, and overly broad directives for a bundled React app. Tests CSP knowledge in context.",
-      "topic": "csp-configuration",
-      "focus_dimensions": [
-        "vulnerability_detection",
-        "fix_correctness",
-        "defence_in_depth",
-        "false_positive_avoidance"
-      ],
-      "input_files": {
-        "security-middleware.js": "import crypto from 'node:crypto';\nimport helmet from 'helmet';\n\nexport function securityMiddleware(app) {\n  app.use(helmet());\n\n  app.use((req, res, next) => {\n    res.setHeader(\n      'Content-Security-Policy',\n      [\n        \"default-src 'self'\",\n        \"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.google-analytics.com\",\n        \"style-src 'self' 'unsafe-inline'\",\n        \"img-src *\",\n        \"font-src 'self' https://fonts.googleapis.com\",\n        \"connect-src 'self' https://*.google-analytics.com\",\n        \"frame-src *\",\n        \"base-uri *\",\n        \"form-action *\"\n      ].join('; ')\n    );\n    next();\n  });\n}\n",
-        "README.md": "# Application Context\n\nThis is a production React application (bundled with Vite, no inline scripts).\nIt serves user-uploaded images via a CDN at images.example.com.\nIt integrates Google Analytics via the gtag.js script.\nFont files are loaded from Google Fonts.\n"
+      {
+        "id": "csp-configuration-detect-and-fix",
+        "eval_type": "detect-and-fix",
+        "title": "CSP configuration detect and fix",
+        "input": {
+          "topic": "csp-configuration",
+          "description": "An Express.js middleware configuring CSP with unsafe-inline, unsafe-eval, and overly
+  broad directives for a bundled React app.",
+          "input_files": {
+            "security-middleware.js": "import crypto from 'node:crypto';\nimport helmet from 'helmet';\n\nexpo
+  rt function securityMiddleware(app) {\n  app.use(helmet());\n\n  app.use((req, res, next) => {\n    res.setH
+  eader(\n      'Content-Security-Policy',\n      [\n        \"default-src 'self'\",\n        \"script-src 'se
+  lf' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.google-analytics.com\",\n        \"styl
+  e-src 'self' 'unsafe-inline'\",\n        \"img-src *\",\n        \"font-src 'self'
+  https://fonts.googleapis.com\",\n        \"connect-src 'self' https://*.google-analytics.com\",\n        \"f
+  rame-src *\",\n        \"base-uri *\",\n        \"form-action *\"\n      ].join('; ')\n    );\n    next();\n
+  });\n}\n",
+            "README.md": "# Application Context\n\nThis is a production React application bundled with Vite and
+  no inline scripts.\nIt serves user-uploaded images via a CDN at images.example.com.\nIt integrates Google
+  Analytics via the gtag.js script.\nFont files are loaded from Google Fonts.\n"
+          },
+          "task": "You are a senior frontend security engineer. Audit security-middleware.js for Content
+  Security Policy issues. The README.md provides context about the application.\n\nApply fixes directly to
+  security-middleware.js. The CSP must remain functional for Google Analytics, user images, and Google Fonts.
+  \n\nWrite a brief AUDIT.md documenting what you found, what you changed, and why each directive matters."
+        },
+        "expectations": {
+          "key_expectations": [
+            "Removes unsafe-inline and unsafe-eval from script-src.",
+            "Implements nonce-based script-src with strict-dynamic.",
+            "Generates a unique nonce per request and exposes it to templates.",
+            "Restricts frame-src, base-uri, form-action, and img-src.",
+            "Updates font-src to include fonts.gstatic.com.",
+            "Preserves Google Analytics, cdn.jsdelivr.net, and helmet usage.",
+            "Explains why unsafe-inline, base-uri *, and broad directives are risky."
+          ]
+        },
+        "scoring_dimensions": [
+          { "id": "vulnerability_detection", "label": "Vulnerability detection", "max_score": 1 },
+          { "id": "fix_correctness", "label": "Fix correctness", "max_score": 1 },
+          { "id": "defence_in_depth", "label": "Defence in depth", "max_score": 1 },
+          { "id": "false_positive_avoidance", "label": "False positive avoidance", "max_score": 1 }
+        ]
       },
-      "task": "You are a senior frontend security engineer. Audit security-middleware.js for Content Security Policy issues. The README.md provides context about the application.\n\nApply fixes directly to security-middleware.js. The CSP must remain functional for the described application — Google Analytics, user images, and Google Fonts must continue to work.\n\nWrite a brief AUDIT.md documenting what you found, what you changed, and why each directive matters.",
-      "key_expectations": [
-        "FIXES: Removes 'unsafe-inline' from script-src — unnecessary for a bundled React app",
-        "FIXES: Removes 'unsafe-eval' from script-src — unnecessary for a bundled React app",
-        "FIXES: Implements nonce-based script-src with 'strict-dynamic' as the replacement",
-        "FIXES: Generates a unique nonce per request (crypto.randomBytes) and makes it available to the template",
-        "FIXES: Restricts frame-src from * to 'none' or specific origins",
-        "FIXES: Restricts base-uri from * to 'none' or 'self'",
-        "FIXES: Restricts form-action from * to 'self' or specific origins",
-        "FIXES: Updates font-src to include fonts.gstatic.com (where font files are actually served from)",
-        "FIXES: Narrows img-src from * to 'self' images.example.com (based on the README context)",
-        "PRESERVES: Google Analytics script-src and connect-src directives",
-        "PRESERVES: cdn.jsdelivr.net in script-src (may be needed for third-party scripts)",
-        "PRESERVES: helmet() usage — it should remain",
-        "DOES NOT: Remove the helmet() call or suggest it conflicts with the manual CSP",
-        "DOES NOT: Remove Google Analytics directives — they are legitimate",
-        "AUDIT: Explains why unsafe-inline defeats CSP's XSS protection",
-        "AUDIT: Explains what base-uri * allows (base tag injection)",
-        "AUDIT: Notes that the CSP overrides helmet's default CSP"
-      ]
-    },
-    {
-      "id": 5,
-      "name": "react-search-secure-author",
-      "type": "secure-author",
-      "description": "Build a React search results component from a spec. The spec does NOT mention security — the agent must apply secure patterns by default. Tests whether the agent avoids dangerouslySetInnerHTML, validates URLs, and handles user input safely.",
-      "topic": "xss-prevention",
-      "focus_dimensions": [
-        "secure_defaults",
-        "fix_correctness",
-        "framework_idiom",
-        "defence_in_depth"
-      ],
-      "input_files": {
-        "SPEC.md": "# Search Results Component\n\n## Overview\n\nBuild a React component that displays search results from an API. Each result\nhas a title, description (may contain HTML markup like <em> for highlighting),\nURL, and thumbnail image.\n\n## Requirements\n\n- Accept a `query` prop and fetch results from `/api/search?q={query}`\n- Display results in a list with title, highlighted description, link, and thumbnail\n- Show the search query in a heading: \"Results for: {query}\"\n- Each result's title should link to its URL\n- Support pagination with \"Load more\" button\n- Show a \"No results found\" message when the results array is empty\n- Include a text input that lets the user refine their search\n\n## API Response Shape\n\n```json\n{\n  \"results\": [\n    {\n      \"title\": \"Example Result\",\n      \"description\": \"This is a <em>highlighted</em> description\",\n      \"url\": \"https://example.com/page\",\n      \"thumbnail\": \"https://images.example.com/thumb.jpg\"\n    }\n  ],\n  \"total\": 42,\n  \"page\": 1,\n  \"hasMore\": true\n}\n```\n"
+      {
+        "id": "react-search-secure-author",
+        "eval_type": "secure-author",
+        "title": "React search secure authoring",
+        "input": {
+          "topic": "xss-prevention",
+          "description": "Build a React search results component from a spec. The spec does not mention
+  security.",
+          "input_files": {
+            "SPEC.md": "# Search Results Component\n\n## Overview\n\nBuild a React component that displays
+  search results from an API. Each result has a title, description with possible HTML markup like <em> for
+  highlighting, URL, and thumbnail image.\n\n## Requirements\n\n- Accept a query prop and fetch results from /
+  api/search?q={query}\n- Display results in a list with title, highlighted description, link, and thumbnail\n-
+  Show the search query in a heading: Results for: {query}\n- Each result's title should link to its URL\n-
+  Support pagination with Load more button\n- Show a No results found message when the results array is
+  empty\n- Include a text input that lets the user refine their search\n"
+          },
+          "task": "You are a senior frontend engineer. Implement the search results component described in
+  SPEC.md. Write a single file SearchResults.jsx.\n\nFocus on clean, idiomatic React code that handles the
+  requirements faithfully."
+        },
+        "expectations": {
+          "key_expectations": [
+            "Does not use dangerouslySetInnerHTML for description unless sanitized first.",
+            "Validates URL protocol before rendering links.",
+            "Uses JSX interpolation for the query heading.",
+            "Handles search input with React state.",
+            "Encodes query values for fetch.",
+            "Implements fetching, pagination, search refinement, and empty state."
+          ]
+        },
+        "scoring_dimensions": [
+          { "id": "secure_defaults", "label": "Secure defaults", "max_score": 1 },
+          { "id": "fix_correctness", "label": "Fix correctness", "max_score": 1 },
+          { "id": "framework_idiom", "label": "Framework idiom", "max_score": 1 },
+          { "id": "defence_in_depth", "label": "Defence in depth", "max_score": 1 }
+        ]
       },
-      "task": "You are a senior frontend engineer. Implement the search results component described in SPEC.md. Write a single file SearchResults.jsx.\n\nFocus on clean, idiomatic React code that handles the requirements faithfully.",
-      "key_expectations": [
-        "SECURE: Does NOT use dangerouslySetInnerHTML for the description, despite the spec mentioning HTML — uses DOMPurify or renders the description as text",
-        "SECURE: If dangerouslySetInnerHTML IS used for the description (to preserve HTML highlighting), it is sanitised with DOMPurify first",
-        "SECURE: Validates URL protocol before rendering in <a href> — does not blindly pass result.url",
-        "SECURE: Does NOT use dangerouslySetInnerHTML for the query heading — uses JSX interpolation",
-        "SECURE: The search input value is handled via React state, not raw DOM manipulation",
-        "SECURE: fetch URL is constructed safely — query is encoded (encodeURIComponent or URLSearchParams)",
-        "FUNCTIONAL: Component fetches results on mount and when query changes",
-        "FUNCTIONAL: Pagination works (Load more appends results)",
-        "FUNCTIONAL: Search refinement input works",
-        "FUNCTIONAL: Empty state shows 'No results found'",
-        "NOTE: The description containing HTML is a deliberate trap — the spec does not mention security, so the agent must recognise the risk itself"
-      ]
-    },
-    {
-      "id": 6,
-      "name": "vanilla-widget-secure-author",
-      "type": "secure-author",
-      "description": "Build an embeddable comment widget from a spec using vanilla JavaScript. Tests whether the agent uses safe DOM APIs by default, avoids innerHTML, and implements postMessage security.",
-      "topic": "dom-security",
-      "focus_dimensions": [
-        "secure_defaults",
-        "fix_correctness",
-        "framework_idiom",
-        "defence_in_depth"
-      ],
-      "input_files": {
-        "SPEC.md": "# Embeddable Comment Widget\n\n## Overview\n\nBuild a lightweight, embeddable comment widget that site owners can add to any\npage via a script tag. It loads comments from a host application and allows\nusers to post new comments. It communicates with the parent page via postMessage.\n\n## Requirements\n\n- Render inside a shadow DOM container for style isolation\n- Fetch existing comments from `https://comments.example.com/api/threads/{threadId}`\n- Display each comment with: author name, timestamp, and comment body\n- Provide a form to submit new comments (author name + comment text)\n- POST new comments to `https://comments.example.com/api/threads/{threadId}/comments`\n- Notify the parent page when a new comment is posted via postMessage\n- Accept configuration (threadId, theme) from the parent page via postMessage\n- Comment bodies may contain basic formatting (bold, italic, links)\n\n## Embedding\n\n```html\n<div id=\"comments-widget\" data-thread-id=\"article-123\"></div>\n<script src=\"https://comments.example.com/widget.js\"></script>\n```\n\n## postMessage Protocol\n\nParent → Widget:\n```json\n{ \"type\": \"configure\", \"threadId\": \"article-123\", \"theme\": \"light\" }\n```\n\nWidget → Parent:\n```json\n{ \"type\": \"comment-posted\", \"commentId\": \"abc\", \"author\": \"Jane\" }\n```\n"
-      },
-      "task": "You are a senior frontend engineer. Implement the comment widget described in SPEC.md. Write a single file widget.js using vanilla JavaScript (no frameworks).\n\nFocus on clean, idiomatic JavaScript. The widget should work when loaded via a script tag on any page.",
-      "key_expectations": [
-        "SECURE: Uses textContent or createElement for rendering comment author and timestamp — NOT innerHTML",
-        "SECURE: If comment bodies need HTML formatting (bold, italic, links), sanitises with DOMPurify before using innerHTML, or uses a safe subset renderer",
-        "SECURE: postMessage receiver validates event.origin against a known origin (comments.example.com)",
-        "SECURE: postMessage sender specifies the target origin explicitly — does NOT use '*'",
-        "SECURE: Validates and sanitises the threadId from data attribute before using in API URLs",
-        "SECURE: Does NOT use document.write()",
-        "SECURE: If creating links from comment body content, validates URL protocols",
-        "SECURE: Form submission uses fetch with proper Content-Type, not form action",
-        "FUNCTIONAL: Shadow DOM is used for style isolation as specified",
-        "FUNCTIONAL: Comments load and display with author, timestamp, body",
-        "FUNCTIONAL: New comment form works and posts to the API",
-        "FUNCTIONAL: postMessage communication works in both directions",
-        "NOTE: The 'comment bodies may contain basic formatting' is a deliberate trap — the agent must recognise this requires sanitisation"
-      ]
-    }
-  ]
-}
+      {
+        "id": "vanilla-widget-secure-author",
+        "eval_type": "secure-author",
+        "title": "Vanilla widget secure authoring",
+        "input": {
+          "topic": "dom-security",
+          "description": "Build an embeddable comment widget from a spec using vanilla JavaScript.",
+          "input_files": {
+            "SPEC.md": "# Embeddable Comment Widget\n\n## Overview\n\nBuild a lightweight, embeddable comment
+  widget that site owners can add to any page via a script tag. It loads comments from a host application and
+  allows users to post new comments. It communicates with the parent page via postMessage.\n\n## Requirements\
+  n\n- Render inside a shadow DOM container for style isolation\n- Fetch existing comments from
+  https://comments.example.com/api/threads/{threadId}\n- Display each comment with author name, timestamp, and
+  comment body\n- Provide a form to submit new comments\n- POST new comments to
+  https://comments.example.com/api/threads/{threadId}/comments\n- Notify the parent page when a new comment is
+  posted via postMessage\n- Accept configuration from the parent page via postMessage\n- Comment bodies may co
+  ntain basic formatting\n"
+          },
+          "task": "You are a senior frontend engineer. Implement the comment widget described in SPEC.md. Write
+  a single file widget.js using vanilla JavaScript.\n\nFocus on clean, idiomatic JavaScript. The widget should
+  work when loaded via a script tag on any page."
+        },
+        "expectations": {
+          "key_expectations": [
+            "Uses textContent or createElement for author and timestamp.",
+            "Sanitizes formatted comment bodies before any HTML rendering.",
+            "Validates postMessage origin.",
+            "Uses explicit postMessage target origin.",
+            "Validates and sanitizes threadId before using it in API URLs.",
+            "Does not use document.write.",
+            "Validates link protocols.",
+            "Implements Shadow DOM, fetching, posting, and postMessage communication."
+          ]
+        },
+        "scoring_dimensions": [
+          { "id": "secure_defaults", "label": "Secure defaults", "max_score": 1 },
+          { "id": "fix_correctness", "label": "Fix correctness", "max_score": 1 },
+          { "id": "framework_idiom", "label": "Framework idiom", "max_score": 1 },
+          { "id": "defence_in_depth", "label": "Defence in depth", "max_score": 1 }
+        ]
+      }
+    ]
+  }
